@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-errors/errors"
 	"os"
 	"strconv"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/go-errors/errors"
 	"github.com/sirupsen/logrus"
-	//"github.com/elastifile/emanage-go"
-	//"github.com/elastifile/emanage-go/src/emanage-client"
 )
 
 const (
@@ -27,25 +25,28 @@ func logFatalAndPanic(format string, args ...interface{}) error {
 	panic(fmt.Sprintf(format, args...))
 }
 
-func main() {
+func initFromEnv() {
 	debug := os.Getenv("DEBUG")
+	driverInfo.RestAddr = os.Getenv("MGMT_ADDRESS")
+	driverInfo.RestUser = os.Getenv("MGMT_USERNAME")
+	driverInfo.RestPass = os.Getenv("MGMT_PASSWORD")
+	driverInfo.StorageAddr = os.Getenv("NFS_ADDRESS")
 
 	if ok, _ := strconv.ParseBool(debug); ok {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
+}
 
+func main() {
+	initFromEnv()
 	// TODO: logrus.SetFormatter()
 
 	logrus.Infof("Initializing %v", pluginName)
-	driver, ems, err := newElastifileDriver(driverInfo)
+	driver, err := newElastifileDriver(driverInfo)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to initialize plugin", 0)
 		logFatalAndPanic(err.Error())
 	}
-	if ems == nil {
-		panic("Got nil EMS client")
-	}
-	EMSClient = ems
 
 	handler := volume.NewHandler(driver)
 	if handler == nil {

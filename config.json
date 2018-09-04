@@ -10,7 +10,35 @@
       "settable": [
         "value"
       ],
-      "value": "true"
+      "value": "false"
+    },
+    {
+      "name": "MGMT_ADDRESS",
+      "settable": [
+        "value"
+      ],
+      "value": "10.0.100.100"
+    },
+    {
+      "name": "MGMT_USERNAME",
+      "settable": [
+        "value"
+      ],
+      "value": "admin"
+    },
+    {
+      "name": "MGMT_PASSWORD",
+      "settable": [
+        "value"
+      ],
+      "value": "changeme"
+    },
+    {
+      "name": "NFS_ADDRESS",
+      "settable": [
+        "value"
+      ],
+      "value": "10.0.200.200"
     }
   ],
   "interface": {

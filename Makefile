@@ -1,10 +1,10 @@
-PLUGIN_NAME = elastifileio/elastifile
+PLUGIN_NAME = elastifileio/edvp
 PLUGIN_TAG ?= next
-REGISTRY=registry.il.elastifile.com
+REGISTRY=hub.docker.com
 
 TEST_VOLUME_NAME=myvolume1
-TEST_MOUNT_POINT=/mounted_volume
-TEST_FILE_NAME=blahfile
+TEST_MOUNT_POINT=/elastifile_data
+TEST_FILE_NAME=testfile
 
 all: clean rootfs create
 
@@ -39,15 +39,15 @@ test:
 	@docker volume rm ${TEST_VOLUME_NAME} || true
 	@echo "### create volume"
 	@docker volume create -d ${PLUGIN_NAME}:${PLUGIN_TAG} --name ${TEST_VOLUME_NAME} -o size=12GiB
-	@echo "### list volumes"
+	@echo "### list volumes #1"
 	@docker volume ls
 	@echo "### create file ${TEST_FILE_NAME} in one container"
 	@docker run --rm -it -v ${TEST_VOLUME_NAME}:${TEST_MOUNT_POINT} busybox touch ${TEST_MOUNT_POINT}/${TEST_FILE_NAME}
 	@echo "### list file ${TEST_FILE_NAME} in another container"
 	@docker run --rm -it -v ${TEST_VOLUME_NAME}:${TEST_MOUNT_POINT} busybox ls -l ${TEST_MOUNT_POINT}/${TEST_FILE_NAME}
-	@echo "### list volumes"
+	@echo "### list volumes #2"
 	@docker volume ls
-	@echo "Please check the results: file ${TEST_FILE_NAME} should be present on the export when the latter is mounted from another location, and the volume should NOT be local"
+	@echo "Now check that file ${TEST_FILE_NAME} is present on the export when the latter is mounted from another location, and the volume is NOT local in #2 above"
 
 local: clean rootfs create enable test
 

@@ -3,9 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/elastifile/emanage-go/src/emanage-client"
-	"github.com/elastifile/emanage-go/src/size"
-	"github.com/go-errors/errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -14,7 +11,11 @@ import (
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
+	"github.com/go-errors/errors"
 	"github.com/sirupsen/logrus"
+
+	"github.com/elastifile/emanage-go/src/emanage-client"
+	"github.com/elastifile/emanage-go/src/size"
 )
 
 type emsDetails struct {
@@ -26,11 +27,7 @@ type emsDetails struct {
 }
 
 var driverInfo = emsDetails{
-	RestAddr:    "10.11.209.222",
-	RestUser:    "admin",
-	RestPass:    "changeme",
-	StorageAddr: "10.11.171.218",
-	Root:        "/mnt",
+	Root: "/mnt",
 }
 
 type elastifileDriver struct {
@@ -45,7 +42,7 @@ type elastifileDriver struct {
 	volumes            map[string]*elastifileVolume
 }
 
-func newElastifileDriver(emsInfo emsDetails) (*elastifileDriver, *emanage.Client, error) {
+func newElastifileDriver(emsInfo emsDetails) (*elastifileDriver, error) {
 	logrus.WithField("method", "new driver").Debug(emsInfo.Root)
 
 	driver := &elastifileDriver{
@@ -58,31 +55,25 @@ func newElastifileDriver(emsInfo emsDetails) (*elastifileDriver, *emanage.Client
 		volumes:            map[string]*elastifileVolume{},
 	}
 
-	ems, err := getEMSClient(driver)
-	if err != nil {
-		err = errors.Wrap(err, 0)
-		return nil, nil, err
-	}
-
 	data, err := ioutil.ReadFile(driver.statePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			logrus.WithField("statePath", driver.statePath).Debug("State not found")
 		} else {
 			err = errors.WrapPrefix(err, "Failed to load state", 0)
-			return nil, nil, err
+			return nil, err
 		}
 	} else {
 		logrus.WithField("data", string(data)).Debug("Loaded state")
 		err := json.Unmarshal(data, &driver.volumes)
 		if err != nil {
-			return nil, nil, errors.WrapPrefix(err, "Failed to unmarshal state", 0)
+			return nil, errors.WrapPrefix(err, "Failed to unmarshal state", 0)
 		}
 		logrus.Debug("Umarshaled state")
 	}
 
 	logrus.Debugf("%v driver created", pluginName)
-	return driver, ems, nil
+	return driver, nil
 }
 
 func (d *elastifileDriver) saveState() {
@@ -104,7 +95,7 @@ func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 	defer d.Unlock()
 	v := &elastifileVolume{}
 
-	dcCreateOpts, exportCreateOpts := defaultDcExportCreateOpts(r.Name)
+	dcCreateOpts, exportCreateOpts := Ems.defaultDcExportCreateOpts(r.Name)
 
 	for key, val := range r.Options {
 		switch key {
@@ -135,7 +126,7 @@ func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 			}
 			exportCreateOpts.Gid = &gid
 		default:
-			// Currently ignored. Consider using as mount options
+			// Currently extra arguments ignored. Consider passing to mount verbatim
 			if val != "" {
 				v.MountOpts = append(v.MountOpts, key+"="+val)
 			} else {
@@ -146,12 +137,12 @@ func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 
 	if dcCreateOpts.HardQuota == 0 {
 		dcCreateOpts.HardQuota = int(defaultVolumeSize)
-		logrus.Info("Using default volume size", "size", dcCreateOpts.HardQuota)
+		logrus.WithField("size", dcCreateOpts.HardQuota).Info("Using default volume size")
 	}
 	dcCreateOpts.SoftQuota = dcCreateOpts.HardQuota // Setting hard quota w/o soft quota fails
 
 	logrus.WithField("name", r.Name).Debug("Creating Data Container and Export")
-	exp, dc, err := maybeCreateDcExport(dcCreateOpts, exportCreateOpts)
+	exp, dc, err := Ems.maybeCreateDcExport(dcCreateOpts, exportCreateOpts)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to create Data Container / Export", 0)
 		return err
@@ -188,7 +179,7 @@ func (d *elastifileDriver) Remove(r *volume.RemoveRequest) error {
 	}
 
 	// Handle DC/export removal
-	DeleteDcExport(v)
+	Ems.DeleteDcExport(v)
 
 	delete(d.volumes, r.Name)
 	d.saveState()
@@ -300,8 +291,9 @@ func (d *elastifileDriver) Capabilities() *volume.CapabilitiesResponse {
 }
 
 func (d *elastifileDriver) mountVolume(v *elastifileVolume) error {
-	logrus.Info("Mounting volume %v on %v", v.ExportPath(), v.Mountpoint)
-	cmd := exec.Command("mount", fmt.Sprintf("%v:%v", d.storageAddr, v.ExportPath()), v.Mountpoint)
+	logrus.Info("Mounting volume %s on %s", v.ExportPath(), v.Mountpoint)
+	cmd := exec.Command("mount", "-o", "nolock", fmt.Sprintf("%v:%v", d.storageAddr, v.ExportPath()), v.Mountpoint)
+	//cmd := exec.Command("mount", fmt.Sprintf("%v:%v", d.storageAddr, v.ExportPath()), v.Mountpoint)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return logErrorAndReturn("mount command execute failed: %v (%s)", err, output)
@@ -311,7 +303,7 @@ func (d *elastifileDriver) mountVolume(v *elastifileVolume) error {
 }
 
 func (d *elastifileDriver) unmountVolume(target string) error {
-	logrus.Info("Unmounting %v", target)
+	logrus.Info("Unmounting %s", target)
 	cmd := fmt.Sprintf("umount %s", target)
 	logrus.Debug(cmd)
 	return exec.Command("sh", "-c", cmd).Run()
