@@ -61,6 +61,7 @@ func (ems *EmsWrapper) Client() *emanage.Client {
 			panic(err.Error())
 		}
 		ems.client = client
+		ems.sessionInitialized = true
 	}
 	return ems.client
 }
