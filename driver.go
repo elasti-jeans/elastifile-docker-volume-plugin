@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/docker/go-plugins-helpers/volume"
@@ -91,9 +92,11 @@ func (d *elastifileDriver) saveState() {
 func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 	logrus.WithField("method", "create").Debugf("%#v", r)
 
+	var defautMountOpts = []string{"nolock"}
+
 	d.Lock()
 	defer d.Unlock()
-	v := &elastifileVolume{}
+	v := &elastifileVolume{MountOpts: defautMountOpts}
 
 	dcCreateOpts, exportCreateOpts := Ems.defaultDcExportCreateOpts(r.Name)
 
@@ -291,20 +294,31 @@ func (d *elastifileDriver) Capabilities() *volume.CapabilitiesResponse {
 }
 
 func (d *elastifileDriver) mountVolume(v *elastifileVolume) error {
-	logrus.Info("Mounting volume %s on %s", v.ExportPath(), v.Mountpoint)
-	cmd := exec.Command("mount", "-o", "nolock", fmt.Sprintf("%v:%v", d.storageAddr, v.ExportPath()), v.Mountpoint)
-	//cmd := exec.Command("mount", fmt.Sprintf("%v:%v", d.storageAddr, v.ExportPath()), v.Mountpoint)
+	logrus.Infof("Mounting volume %s on %s", v.ExportPath(), v.Mountpoint)
+
+	var mountArgs []string
+	if len(v.MountOpts) > 0 {
+		mountArgs = append(mountArgs, "-o", strings.Join(v.MountOpts, ","))
+	}
+	mountArgs = append(mountArgs, fmt.Sprintf("%v:%v", d.storageAddr, v.ExportPath()), v.Mountpoint)
+
+	cmd := exec.Command("mount", mountArgs...)
+	logrus.Debugf("Executing: %s", cmd.Args)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return logErrorAndReturn("mount command execute failed: %v (%s)", err, output)
+		return logErrorAndReturn("mount command failed: %v (%s)", err, output)
 	}
 	logrus.Debug("Mounted", output)
 	return nil
 }
 
 func (d *elastifileDriver) unmountVolume(target string) error {
-	logrus.Info("Unmounting %s", target)
-	cmd := fmt.Sprintf("umount %s", target)
-	logrus.Debug(cmd)
-	return exec.Command("sh", "-c", cmd).Run()
+	logrus.Infof("Unmounting %s", target)
+	cmd := exec.Command("umount", target)
+	logrus.Debugf("Executing: %s", cmd.Args)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return logErrorAndReturn("umount command failed: %v (%s)", err, output)
+	}
+	return err
 }

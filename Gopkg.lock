@@ -69,7 +69,7 @@
 
 [[projects]]
   branch = "import-paths"
-  digest = "1:93694df05752fdfb0cbf277b030db8bcefcbe7c757dc68f82d1037ed4d72bc6b"
+  digest = "1:342f848ca7813e1ba9b7afa9ea4264715d054065ee8803229f3777b425e7b710"
   name = "github.com/elastifile/emanage-go"
   packages = [
     "src/ejson",
@@ -107,7 +107,7 @@
     "src/types",
   ]
   pruneopts = "UT"
-  revision = "693f046bd911c5a11210fe17bcc67980b79c6976"
+  revision = "71ce81a29d6d69ca2d43616f0619f62890f6a445"
 
 [[projects]]
   digest = "1:bbc4aacabe6880bdbce849c64cb061b7eddf39f132af4ea2853ddd32f85fbec3"
@@ -304,6 +304,7 @@
   input-imports = [
     "github.com/docker/go-plugins-helpers/volume",
     "github.com/elastifile/emanage-go/src/emanage-client",
+    "github.com/elastifile/emanage-go/src/optional",
     "github.com/elastifile/emanage-go/src/size",
     "github.com/go-errors/errors",
     "github.com/sirupsen/logrus",
