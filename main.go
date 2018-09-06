@@ -50,7 +50,7 @@ func main() {
 
 	handler := volume.NewHandler(driver)
 	if handler == nil {
-		err = errors.WrapPrefix(err, "Received nil handler", 0)
+		err = errors.WrapPrefix(err, "Received nil volume handler", 0)
 		logFatalAndPanic(err.Error())
 	}
 

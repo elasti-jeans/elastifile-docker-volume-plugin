@@ -92,11 +92,11 @@ func (d *elastifileDriver) saveState() {
 func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 	logrus.WithField("method", "create").Debugf("%#v", r)
 
-	var defautMountOpts = []string{"nolock"}
+	var defaultMountOpts = []string{"nolock"}
 
 	d.Lock()
 	defer d.Unlock()
-	v := &elastifileVolume{MountOpts: defautMountOpts}
+	v := &elastifileVolume{MountOpts: defaultMountOpts}
 
 	dcCreateOpts, exportCreateOpts := Ems.defaultDcExportCreateOpts(r.Name)
 
@@ -128,8 +128,7 @@ func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 				logErrorAndReturn("Unsupported GID value: %v", val)
 			}
 			exportCreateOpts.Gid = &gid
-		default:
-			// Currently extra arguments ignored. Consider passing to mount verbatim
+		default: // These args will be passed to mount command verbatim
 			if val != "" {
 				v.MountOpts = append(v.MountOpts, key+"="+val)
 			} else {

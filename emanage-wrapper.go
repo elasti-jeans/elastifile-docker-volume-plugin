@@ -51,19 +51,18 @@ func (ems *EmsWrapper) initSession(details emsDetails) (client *emanage.Client, 
 	return
 }
 
-// Client is used to delay EMS login until the plugin has been reconfigured
-// Doing it too early will fail upon "docker plugin enable"
-func (ems *EmsWrapper) Client() *emanage.Client {
+// Client is used to cache EMS login
+// TODO: Consider removing this function and calling intSession() from newElastifileDriver()
+func (ems *EmsWrapper) Client() (*emanage.Client, error) {
 	if !ems.sessionInitialized {
 		client, err := ems.initSession(driverInfo)
 		if err != nil {
-			err = errors.WrapPrefix(err, "Fatal error - failed to login to EMS", 0)
-			panic(err.Error())
+			return nil, errors.WrapPrefix(err, "Fatal error - failed to login to EMS", 0)
 		}
 		ems.client = client
 		ems.sessionInitialized = true
 	}
-	return ems.client
+	return ems.client, nil
 }
 
 func (ems *EmsWrapper) defaultDcCreateOpts(name string) *emanage.DcCreateOpts {
@@ -94,8 +93,15 @@ func (ems *EmsWrapper) defaultPolicy() (policy emanage.Policy, err error) {
 		err = errors.New("Got nil EMS client")
 		return
 	}
+
+	emsClient, err := ems.Client()
+	if err != nil {
+		err = errors.WrapPrefix(err, "Failed to create EMS client", 0)
+		return
+	}
+
 	var policies []emanage.Policy
-	policies, err = ems.Client().Policies.GetAll(nil)
+	policies, err = emsClient.Policies.GetAll(nil)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to get policies from EMS", 0)
 		return
@@ -128,7 +134,14 @@ func (ems *EmsWrapper) CreateDc(opts *emanage.DcCreateOpts) (dcRef *emanage.Data
 	}
 
 	logrus.WithFields(logrus.Fields{"name": name, "policy id": policy.Id, "opts": opts}).Debug("Creating Data Container")
-	dc, err := ems.Client().DataContainers.Create(name, policy.Id, opts)
+
+	emsClient, err := ems.Client()
+	if err != nil {
+		err = errors.WrapPrefix(err, "Failed to create EMS client", 0)
+		return
+	}
+
+	dc, err := emsClient.DataContainers.Create(name, policy.Id, opts)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to create Data Container", 0)
 		return
@@ -139,11 +152,23 @@ func (ems *EmsWrapper) CreateDc(opts *emanage.DcCreateOpts) (dcRef *emanage.Data
 }
 
 func (ems *EmsWrapper) CreateExport(name string, opts *emanage.ExportCreateOpts) (export emanage.Export, err error) {
-	return ems.Client().Exports.Create(name, opts)
+	emsClient, err := ems.Client()
+	if err != nil {
+		err = errors.WrapPrefix(err, "Failed to create EMS client", 0)
+		return
+	}
+
+	return emsClient.Exports.Create(name, opts)
 }
 
 func (ems *EmsWrapper) dcExists(dcName string) (exists bool, dcRef *emanage.DataContainer, err error) {
-	dcs, err := ems.Client().DataContainers.GetAll(nil)
+	emsClient, err := ems.Client()
+	if err != nil {
+		err = errors.WrapPrefix(err, "Failed to create EMS client", 0)
+		return
+	}
+
+	dcs, err := emsClient.DataContainers.GetAll(nil)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to get Data Containers", 0)
 		return
@@ -159,7 +184,14 @@ func (ems *EmsWrapper) dcExists(dcName string) (exists bool, dcRef *emanage.Data
 }
 
 func (ems *EmsWrapper) exportExists(exportName string, dcId int) (exists bool, exportRef *emanage.Export, err error) {
-	exports, err := ems.Client().Exports.GetAll(nil)
+
+	emsClient, err := ems.Client()
+	if err != nil {
+		err = errors.WrapPrefix(err, "Failed to create EMS client", 0)
+		return
+	}
+
+	exports, err := emsClient.Exports.GetAll(nil)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to get Exports", 0)
 		return
@@ -231,13 +263,25 @@ func (ems *EmsWrapper) maybeCreateDcExport(dcOpts *emanage.DcCreateOpts, exportO
 
 func (ems *EmsWrapper) DeleteDc(dc *emanage.DataContainer) (err error) {
 	// TODO: Return success if DC doesn't exist
-	_, err = ems.Client().DataContainers.Delete(dc)
+
+	emsClient, err := ems.Client()
+	if err != nil {
+		return errors.WrapPrefix(err, "Failed to create EMS client", 0)
+	}
+
+	_, err = emsClient.DataContainers.Delete(dc)
 	return err
 }
 
 func (ems *EmsWrapper) DeleteExport(export *emanage.Export) (err error) {
 	// TODO: Return success if export doesn't exist
-	_, err = ems.Client().Exports.Delete(export)
+
+	emsClient, err := ems.Client()
+	if err != nil {
+		return errors.WrapPrefix(err, "Failed to create EMS client", 0)
+	}
+
+	_, err = emsClient.Exports.Delete(export)
 	return
 }
 
@@ -270,7 +314,13 @@ func (ems *EmsWrapper) DeleteDcExport(v *elastifileVolume) (err error) {
 }
 
 func (ems *EmsWrapper) dcExportPath(export *emanage.Export) (dir string, err error) {
-	dc, err := ems.Client().DataContainers.GetFull(export.DataContainerId)
+	emsClient, err := ems.Client()
+	if err != nil {
+		err = errors.WrapPrefix(err, "Failed to create EMS client", 0)
+		return
+	}
+
+	dc, err := emsClient.DataContainers.GetFull(export.DataContainerId)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to get Data Containers", 0)
 		return
