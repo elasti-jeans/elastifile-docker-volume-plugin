@@ -6,13 +6,7 @@
   ],
   "env": [
     {
-      "name": "DEBUG",
-      "settable": [
-        "value"
-      ],
-      "value": "false"
-    },
-    {
+      "Description": "Elastifile Management Console Address",
       "name": "MGMT_ADDRESS",
       "settable": [
         "value"
@@ -20,6 +14,7 @@
       "value": "10.0.100.100"
     },
     {
+      "Description": "Username for logging into the Elastifile management console",
       "name": "MGMT_USERNAME",
       "settable": [
         "value"
@@ -27,6 +22,7 @@
       "value": "admin"
     },
     {
+      "Description": "Password for logging into the Elastifile management console",
       "name": "MGMT_PASSWORD",
       "settable": [
         "value"
@@ -34,11 +30,20 @@
       "value": "changeme"
     },
     {
+      "Description": "DNS name / IP address for storage access",
       "name": "NFS_ADDRESS",
       "settable": [
         "value"
       ],
       "value": "10.0.200.200"
+    },
+    {
+      "Description": "",
+      "name": "DEBUG",
+      "settable": [
+        "value"
+      ],
+      "value": "false"
     }
   ],
   "interface": {
