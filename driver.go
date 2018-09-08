@@ -293,13 +293,18 @@ func (d *elastifileDriver) Capabilities() *volume.CapabilitiesResponse {
 }
 
 func (d *elastifileDriver) mountVolume(v *elastifileVolume) error {
-	logrus.Infof("Mounting volume %s on %s", v.ExportPath(), v.Mountpoint)
+	exportPath, err := v.ExportPath()
+	if err != nil {
+		return errors.WrapPrefix(err, "Failed to get full export path", 0)
+	}
+
+	logrus.Infof("Mounting volume %s on %s", exportPath, v.Mountpoint)
 
 	var mountArgs []string
 	if len(v.MountOpts) > 0 {
 		mountArgs = append(mountArgs, "-o", strings.Join(v.MountOpts, ","))
 	}
-	mountArgs = append(mountArgs, fmt.Sprintf("%v:%v", d.storageAddr, v.ExportPath()), v.Mountpoint)
+	mountArgs = append(mountArgs, fmt.Sprintf("%v:%v", d.storageAddr, exportPath), v.Mountpoint)
 
 	cmd := exec.Command("mount", mountArgs...)
 	logrus.Debugf("Executing: %s", cmd.Args)

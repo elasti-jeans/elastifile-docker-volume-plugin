@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
+	"github.com/go-errors/errors"
 
 	"github.com/elastifile/emanage-go/src/emanage-client"
 )
@@ -14,13 +14,10 @@ type elastifileVolume struct {
 	DataContainer *emanage.DataContainer
 }
 
-func (v *elastifileVolume) ExportPath() (exportPath string) {
-	exportPath, err := Ems.dcExportPath(v.Export)
+func (v *elastifileVolume) ExportPath() (exportPath string, err error) {
+	exportPath, err = Ems.dcExportPath(v.Export)
 	if err != nil {
-		// TODO: Check spec if it's ok to return an empty path in this case. Alternatives: "/", panic
-		logrus.Error("Failed to get export path", "volume", v, "err", err.Error())
-		return ""
+		err = errors.WrapPrefix(err, "Failed to get export path from EMS", 0)
 	}
-
-	return exportPath
+	return
 }
