@@ -5,6 +5,7 @@ import (
 	"github.com/elastifile/emanage-go/src/optional"
 	"net/url"
 	"path"
+	"regexp"
 
 	"github.com/go-errors/errors"
 	"github.com/sirupsen/logrus"
@@ -30,6 +31,12 @@ var (
 	Ems               EmsWrapper       // Keep global to be reachable from ExportPath()
 	defaultVolumeSize = 100 * size.GiB // TODO: Take from env
 )
+
+func legalVolumeName(name string) (legalName string) {
+	legalNameRegEx := regexp.MustCompile("[^a-zA-Z0-9._-]+")
+	legalName = legalNameRegEx.ReplaceAllString(name, "")
+	return legalName
+}
 
 func (ems *EmsWrapper) initSession(details emsDetails) (client *emanage.Client, err error) {
 	emsUrl := &url.URL{
@@ -124,8 +131,8 @@ func (ems *EmsWrapper) defaultPolicy() (policy emanage.Policy, err error) {
 }
 
 func (ems *EmsWrapper) CreateDc(opts *emanage.DcCreateOpts) (dcRef *emanage.DataContainer, err error) {
-	// TODO: Prune illegal characters
-	name := fmt.Sprintf(opts.Name)
+	name := legalVolumeName(opts.Name)
+
 	// TODO: Support non-default policies via command line options and only use the default one if no policy was specified
 	policy, err := ems.defaultPolicy()
 	if err != nil {
