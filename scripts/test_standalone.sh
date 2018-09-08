@@ -31,9 +31,9 @@ function log_pass () {
 }
 
 echo "### Cleanup - it's ok to se errors in this phase ###"
-docker volume rm ${VOLUME} -f || true
-docker plugin disable ${PLUGIN} || true
-docker plugin rm ${PLUGIN} || true
+docker volume rm --force ${VOLUME} || true
+docker plugin disable --force ${PLUGIN} || true
+docker plugin rm --force ${PLUGIN} || true
 
 echo "### Installing plugin ###"
 docker plugin install --grant-all-permissions ${PLUGIN} MGMT_ADDRESS=${MGMT_ADDRESS} NFS_ADDRESS=${NFS_ADDRESS} MGMT_USERNAME=${MGMT_USERNAME} MGMT_PASSWORD=${MGMT_PASSWORD}
