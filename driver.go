@@ -289,7 +289,7 @@ func (d *elastifileDriver) List() (*volume.ListResponse, error) {
 func (d *elastifileDriver) Capabilities() *volume.CapabilitiesResponse {
 	logrus.WithField("method", "capabilities").Debugf("")
 
-	return &volume.CapabilitiesResponse{Capabilities: volume.Capability{Scope: "local"}}
+	return &volume.CapabilitiesResponse{Capabilities: volume.Capability{Scope: "global"}}
 }
 
 func (d *elastifileDriver) mountVolume(v *elastifileVolume) error {
