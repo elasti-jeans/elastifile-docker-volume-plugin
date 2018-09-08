@@ -27,9 +27,11 @@ const (
 	optionsUserMappingGid  = "user-mapping-gid"
 )
 
+// TODO: take default volume size from env
+// TODO: Take default mount options from env
 var (
-	Ems               EmsWrapper       // Keep global to be reachable from ExportPath()
-	defaultVolumeSize = 100 * size.GiB // TODO: Take from env
+	Ems               EmsWrapper // Keep global to be reachable from ExportPath()
+	defaultVolumeSize = 100 * size.GiB
 )
 
 func legalVolumeName(name string) (legalName string) {
@@ -59,7 +61,6 @@ func (ems *EmsWrapper) initSession(details emsDetails) (client *emanage.Client, 
 }
 
 // Client is used to cache EMS login
-// TODO: Consider removing this function and calling intSession() from newElastifileDriver()
 func (ems *EmsWrapper) Client() (*emanage.Client, error) {
 	if !ems.sessionInitialized {
 		client, err := ems.initSession(driverInfo)
@@ -148,6 +149,8 @@ func (ems *EmsWrapper) CreateDc(opts *emanage.DcCreateOpts) (dcRef *emanage.Data
 		return
 	}
 
+	// TODO: Should create/delete operations be idempotent?
+	// Currently, the behavior is to return the server's response as-is
 	dc, err := emsClient.DataContainers.Create(name, policy.Id, opts)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to create Data Container", 0)
@@ -269,8 +272,6 @@ func (ems *EmsWrapper) maybeCreateDcExport(dcOpts *emanage.DcCreateOpts, exportO
 }
 
 func (ems *EmsWrapper) DeleteDc(dc *emanage.DataContainer) (err error) {
-	// TODO: Return success if DC doesn't exist
-
 	emsClient, err := ems.Client()
 	if err != nil {
 		return errors.WrapPrefix(err, "Failed to create EMS client", 0)
@@ -281,8 +282,6 @@ func (ems *EmsWrapper) DeleteDc(dc *emanage.DataContainer) (err error) {
 }
 
 func (ems *EmsWrapper) DeleteExport(export *emanage.Export) (err error) {
-	// TODO: Return success if export doesn't exist
-
 	emsClient, err := ems.Client()
 	if err != nil {
 		return errors.WrapPrefix(err, "Failed to create EMS client", 0)
@@ -291,20 +290,6 @@ func (ems *EmsWrapper) DeleteExport(export *emanage.Export) (err error) {
 	_, err = emsClient.Exports.Delete(export)
 	return
 }
-
-//func DeleteDcExport(dc *emanage.DataContainer, export *emanage.Export) (err error) {
-//	err = DeleteExport(export)
-//	if err != nil {
-//		// TODO: Wrap error
-//		return
-//	}
-//	err = DeleteDc(dc)
-//	if err != nil {
-//		// TODO: Wrap error
-//		return
-//	}
-//	return
-//}
 
 func (ems *EmsWrapper) DeleteDcExport(v *elastifileVolume) (err error) {
 	err = ems.DeleteExport(v.Export)
