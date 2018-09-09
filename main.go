@@ -20,11 +20,6 @@ func logErrorAndReturn(format string, args ...interface{}) error {
 	return fmt.Errorf(format, args...)
 }
 
-func logFatalAndPanic(format string, args ...interface{}) error {
-	logrus.Fatalf(format, args...)
-	panic(fmt.Sprintf(format, args...))
-}
-
 // initFromEnv initializes the plugin configuration from environment variables defined in config.json
 // The variables start with default specified in config.json and can be overridden via docker plugin install/set
 func initFromEnv() {
@@ -39,7 +34,7 @@ func initFromEnv() {
 	if err != nil {
 		err = errors.WrapPrefix(err, fmt.Sprintf("Failed to parse environment variable's value. %v='%v'",
 			envVarName, envVarValue), 0)
-		logFatalAndPanic(err.Error())
+		logrus.Fatal(err.Error())
 	}
 	driverInfo.CrudIdempotent = volCrudIdempotent
 
@@ -49,35 +44,34 @@ func initFromEnv() {
 	if err != nil {
 		err = errors.WrapPrefix(err, fmt.Sprintf("Failed to parse environment variable's value. %v='%v'",
 			envVarName, envVarValue), 0)
-		logFatalAndPanic(err.Error())
+		logrus.Fatal(err.Error())
 	}
 	if enableDebug {
-		logrus.SetLevel(logrus.DebugLevel)
+		logrus.SetLevel(logrus.DebugLevel) // Set logging level
 	}
 }
 
 func main() {
 	initFromEnv()
-	// TODO: logrus.SetFormatter()
 
 	logrus.Infof("Initializing %v", pluginName)
 	driver, err := newElastifileDriver(driverInfo)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to initialize plugin", 0)
-		logFatalAndPanic(err.Error())
+		logrus.Fatal(err.Error())
 	}
 
 	handler := volume.NewHandler(driver)
 	if handler == nil {
 		err = errors.WrapPrefix(err, "Received nil volume handler", 0)
-		logFatalAndPanic(err.Error())
+		logrus.Fatal(err.Error())
 	}
 
 	logrus.Debugf("Getting ready to listen on %s", socketAddress)
 	err = handler.ServeUnix(socketAddress, 0)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to start listener", 0)
-		logFatalAndPanic(err.Error())
+		logrus.Fatal(err.Error())
 	}
 	logrus.Infof("%v initialized - listening on %v", pluginName, socketAddress)
 }

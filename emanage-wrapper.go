@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/elastifile/emanage-go/src/optional"
 	"net/url"
 	"path"
 	"regexp"
@@ -11,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/elastifile/emanage-go/src/emanage-client"
+	"github.com/elastifile/emanage-go/src/optional"
 	"github.com/elastifile/emanage-go/src/size"
 )
 
@@ -142,7 +142,11 @@ func (ems *EmsWrapper) CreateDc(opts *emanage.DcCreateOpts) (dcRef *emanage.Data
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{"name": name, "policy id": policy.Id, "opts": opts}).Debug("Creating Data Container")
+	logrus.WithFields(logrus.Fields{
+		"name":     name,
+		"policyId": policy.Id,
+		"opts":     opts,
+	}).Debug("Creating Data Container")
 
 	emsClient, err := ems.Client()
 	if err != nil {
@@ -226,6 +230,8 @@ func (ems *EmsWrapper) maybeCreateDc(dcOpts *emanage.DcCreateOpts) (*emanage.Dat
 		if err != nil {
 			return nil, errors.WrapPrefix(err, "Failed to create Data Container", 0)
 		}
+	} else {
+		logrus.Debugf("Skipping creation of Data Container %s - it has been created elsewhere", dcOpts.Name)
 	}
 	return dc, nil
 }
@@ -236,12 +242,16 @@ func (ems *EmsWrapper) maybeCreateExport(exportName string, exportOpts *emanage.
 		return nil, errors.WrapPrefix(err, "Failed to check if Export exists", 0)
 	}
 	if !exists {
-		logrus.Debugf("Export %s not found. Creating.", exportName)
 		exp, err := ems.CreateExport(exportName, exportOpts)
 		if err != nil {
 			return nil, errors.WrapPrefix(err, "Failed to create Export", 0)
 		}
 		export = &exp
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"exportName": exportName,
+			"DcId":       exportOpts.DcId,
+		}).Debug("Skipping creation of export - it has been created elsewhere")
 	}
 	return export, nil
 }
@@ -264,7 +274,12 @@ func (ems *EmsWrapper) CreateDcExport(dcOpts *emanage.DcCreateOpts, exportOpts *
 		return
 	}
 	exportRef = &export
-	logrus.WithFields(logrus.Fields{"name": dc.Name, "id": dc.Id, "exportRef": exportRef.Name}).Info("Created DC, Export")
+	logrus.WithFields(logrus.Fields{
+		"dcName":     dc.Name,
+		"dcId":       dc.Id,
+		"exportName": exportRef.Name,
+		"exportPath": exportRef.Path,
+	}).Info("Created Data Container and Export")
 	return exportRef, dc, nil
 }
 
@@ -286,7 +301,13 @@ func (ems *EmsWrapper) MaybeCreateDcExport(dcOpts *emanage.DcCreateOpts, exportO
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{"name": dc.Name, "id": dc.Id, "export": export.Name}).Info("Created DC, Export")
+	logrus.WithFields(logrus.Fields{
+		"dcName":     dc.Name,
+		"dcId":       dc.Id,
+		"exportName": export.Name,
+		"exportPath": export.Path,
+	}).Info("Created Data Container and Export")
+
 	return export, dc, nil
 }
 
@@ -296,6 +317,7 @@ func (ems *EmsWrapper) DeleteDc(dc *emanage.DataContainer) (err error) {
 		return errors.WrapPrefix(err, "Failed to create EMS client", 0)
 	}
 
+	logrus.WithField("dcName", dc.Name).Info("Deleting Data Container")
 	_, err = emsClient.DataContainers.Delete(dc)
 	return err
 }
@@ -306,6 +328,10 @@ func (ems *EmsWrapper) DeleteExport(export *emanage.Export) (err error) {
 		return errors.WrapPrefix(err, "Failed to create EMS client", 0)
 	}
 
+	logrus.WithFields(logrus.Fields{
+		"exportName":      export.Name,
+		"DataContainerId": export.DataContainerId,
+	}).Info("Deleting Export")
 	_, err = emsClient.Exports.Delete(export)
 	return
 }
