@@ -57,46 +57,62 @@ MGMT_ADDRESS=10.11.209.222 NFS_ADDRESS=172.16.0.1 make all test
 Note: "test" target is only useful if your machine has access to ECFS' storage address. If not:
 
 * Remote test
-```bash
+```
 $ PLUGIN_TAG=dev make push
 $ scp scripts/test_standalone.sh <user@remote_machine_wth_storage_access>:
 $ ssh <user@remote_machine_wth_storage_access>
 $ PLUGIN_TAG=dev MGMT_ADDRESS=10.11.209.222 NFS_ADDRESS=172.16.0.1 MGMT_PASSWORD=changeme ./test_standalone.sh 
-### Cleanup - it's ok to se errors in this phase ###
+### Cleanup - it's ok to see errors in this phase ###
 vol1
 Error response from daemon: plugin "elastifileio/edvp:dev" not found
 Error: No such plugin: elastifileio/edvp:dev
+##### Testing CRUD_IDEMPOTENT=true #####
 ### Installing plugin ###
 dev: Pulling from elastifileio/edvp
-724cb075746b: Download complete 
-Digest: sha256:53432ace774cec7aa8f5aac54a022413c62fa51650c7d26a8505adb6b4f6257e
+0bd45ee9b496: Download complete
+Digest: sha256:73cc962ffe1497e94b41975952eac56c8162b73a7d8ce1fc08e1bb1c4941ffc2
 Status: Downloaded newer image for elastifileio/edvp:dev
 Installed plugin elastifileio/edvp:dev
->>> Test step 1: Plugin is reported by docker
+>>> Test step 1: Installed plugin is reported by docker
 elastifileio/edvp:dev
 >>> [PASS]
->>> Test step 2: Plugin is enabled
+>>> Test step 2: Installed plugin is enabled
 true
 >>> [PASS]
-### Testing ###
+>>> Test step 3: Create new volume
 vol1
->>> Test step 3: Volume is reported by docker
 vol1
 >>> [PASS]
--rw-r--r--    1 root     root             0 Sep  8 17:46 /elastifile_mount/HELLO
->>> Test step 4: New container sees the created file
+>>> Test step 4: Create existing volume
+vol1
+vol1
+>>> [PASS]
+>>> Test step 5: Create a file and list it from a different container, i.e. the file persists across container
 /elastifile_mount/HELLO
 >>> [PASS]
->>> Test step 5: Volume uses proper driver, i.e. not the local one
+>>> Test step 6: New volume uses the requested driver, i.e. there was no fallback to local volumes
 elastifileio/edvp:dev
 >>> [PASS]
->>> Test step 6: File can be seen on the export directly
-/mnt/test-19266/HELLO
+>>> Test step 7: File created earlier can be seen on the export directly, i.e. the file is located on the export
+/mnt/test-822/HELLO
 >>> [PASS]
+...
 ### Teardown ###
+>>> Test step 17: Delete the volume
 vol1
+DRIVER                  VOLUME NAME
+local                   6f2a8c7d2b2dc9abcc4b2ca8081d0329e229faa229b43034e9f9e667dc6cd74d
+local                   d75d07bc4917318a4d243890aaa96c787b28883d16a9bb3137a072e40ceb703b
+elastifileio/edvp:dev   myvolume1
+>>> [PASS]
+>>> Test step 18: Disable the plugin
 elastifileio/edvp:dev
+false
+>>> [PASS]
+>>> Test step 19: Remove the plugin
 elastifileio/edvp:dev
+ID                  NAME                DESCRIPTION         ENABLED
+>>> [PASS]
 ### Test completed successfully ###
 ```
 Notes:
@@ -122,5 +138,5 @@ docker plugin enable elastifileio/edvp:next
 ```bash
 $ docker-runc --root /var/run/docker/plugins/runtime-root/moby-plugins list
 $ docker-runc --root /var/run/docker/plugins/runtime-root/moby-plugins exec -t <id> sh
-# cat /mnt/state/elastifile-state.json
+ssh$ cat /mnt/state/elastifile-state.json
 ```

@@ -19,15 +19,16 @@ import (
 	"github.com/elastifile/emanage-go/src/size"
 )
 
-type emsDetails struct {
-	RestAddr    string
-	RestUser    string
-	RestPass    string
-	StorageAddr string
-	Root        string
+type driverDetails struct {
+	RestAddr       string
+	RestUser       string
+	RestPass       string
+	StorageAddr    string
+	Root           string
+	CrudIdempotent bool
 }
 
-var driverInfo = emsDetails{
+var driverInfo = driverDetails{
 	Root: "/mnt",
 }
 
@@ -39,20 +40,22 @@ type elastifileDriver struct {
 	managementPassword string
 	storageAddr        string
 	root               string
+	crudIdempotent     bool
 	statePath          string
 	volumes            map[string]*elastifileVolume
 }
 
-func newElastifileDriver(emsInfo emsDetails) (*elastifileDriver, error) {
-	logrus.WithField("method", "new driver").Debug(emsInfo.Root)
+func newElastifileDriver(drvDetails driverDetails) (*elastifileDriver, error) {
+	logrus.WithField("method", "new driver").Debug(drvDetails.Root)
 
 	driver := &elastifileDriver{
-		managementAddr:     emsInfo.RestAddr,
-		managementUser:     emsInfo.RestUser,
-		managementPassword: emsInfo.RestPass,
-		storageAddr:        emsInfo.StorageAddr,
-		root:               filepath.Join(emsInfo.Root, "volumes"),
-		statePath:          filepath.Join(emsInfo.Root, "state", "elastifile-state.json"),
+		managementAddr:     drvDetails.RestAddr,
+		managementUser:     drvDetails.RestUser,
+		managementPassword: drvDetails.RestPass,
+		storageAddr:        drvDetails.StorageAddr,
+		crudIdempotent:     drvDetails.CrudIdempotent,
+		root:               filepath.Join(drvDetails.Root, "volumes"),
+		statePath:          filepath.Join(drvDetails.Root, "state", "elastifile-state.json"),
 		volumes:            map[string]*elastifileVolume{},
 	}
 
@@ -96,6 +99,7 @@ func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 
 	d.Lock()
 	defer d.Unlock()
+
 	v := &elastifileVolume{MountOpts: defaultMountOpts}
 
 	dcCreateOpts, exportCreateOpts := Ems.defaultDcExportCreateOpts(r.Name)
@@ -144,7 +148,13 @@ func (d *elastifileDriver) Create(r *volume.CreateRequest) (err error) {
 	dcCreateOpts.SoftQuota = dcCreateOpts.HardQuota // Setting hard quota w/o soft quota fails
 
 	logrus.WithField("name", r.Name).Debug("Creating Data Container and Export")
-	exp, dc, err := Ems.maybeCreateDcExport(dcCreateOpts, exportCreateOpts)
+
+	createFunc := Ems.CreateDcExport // Handle idempotence settings
+	if d.crudIdempotent {
+		createFunc = Ems.MaybeCreateDcExport
+	}
+
+	exp, dc, err := createFunc(dcCreateOpts, exportCreateOpts)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to create Data Container / Export", 0)
 		return err
@@ -180,8 +190,12 @@ func (d *elastifileDriver) Remove(r *volume.RemoveRequest) error {
 		return logErrorAndReturn(err.Error())
 	}
 
-	// Handle DC/export removal
-	Ems.DeleteDcExport(v)
+	// Remove Data Container / export
+	deleteFunc := Ems.DeleteDcExport // Handle idempotence settings
+	if d.crudIdempotent {
+		deleteFunc = Ems.MaybeDeleteDcExport
+	}
+	deleteFunc(v)
 
 	delete(d.volumes, r.Name)
 	d.saveState()

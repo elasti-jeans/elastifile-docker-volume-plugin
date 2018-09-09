@@ -22,9 +22,10 @@ type EmsWrapper struct {
 // Volume creation arguments
 const (
 	optionsSize            = "size"
-	optionsUserMappingType = "user-mapping-type" // no_mapping, remap_root, remap_all
+	optionsUserMappingType = "user-mapping-type" // Supported values: no_mapping, remap_root, remap_all
 	optionsUserMappingUid  = "user-mapping-uid"
 	optionsUserMappingGid  = "user-mapping-gid"
+	defaultExportName      = "root"
 )
 
 // TODO: take default volume size from env
@@ -40,7 +41,7 @@ func legalVolumeName(name string) (legalName string) {
 	return legalName
 }
 
-func (ems *EmsWrapper) initSession(details emsDetails) (client *emanage.Client, err error) {
+func (ems *EmsWrapper) initSession(details driverDetails) (client *emanage.Client, err error) {
 	emsUrl := &url.URL{
 		Scheme: "http",
 		Host:   details.RestAddr,
@@ -149,8 +150,6 @@ func (ems *EmsWrapper) CreateDc(opts *emanage.DcCreateOpts) (dcRef *emanage.Data
 		return
 	}
 
-	// TODO: Should create/delete operations be idempotent?
-	// Currently, the behavior is to return the server's response as-is
 	dc, err := emsClient.DataContainers.Create(name, policy.Id, opts)
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to create Data Container", 0)
@@ -168,6 +167,7 @@ func (ems *EmsWrapper) CreateExport(name string, opts *emanage.ExportCreateOpts)
 		return
 	}
 
+	logrus.Debug(fmt.Sprintf("Creating export %+v", opts))
 	return emsClient.Exports.Create(name, opts)
 }
 
@@ -194,7 +194,6 @@ func (ems *EmsWrapper) dcExists(dcName string) (exists bool, dcRef *emanage.Data
 }
 
 func (ems *EmsWrapper) exportExists(exportName string, dcId int) (exists bool, exportRef *emanage.Export, err error) {
-
 	emsClient, err := ems.Client()
 	if err != nil {
 		err = errors.WrapPrefix(err, "Failed to create EMS client", 0)
@@ -237,18 +236,39 @@ func (ems *EmsWrapper) maybeCreateExport(exportName string, exportOpts *emanage.
 		return nil, errors.WrapPrefix(err, "Failed to check if Export exists", 0)
 	}
 	if !exists {
+		logrus.Debugf("Export %s not found. Creating.", exportName)
 		exp, err := ems.CreateExport(exportName, exportOpts)
 		if err != nil {
 			return nil, errors.WrapPrefix(err, "Failed to create Export", 0)
 		}
 		export = &exp
-	} else {
-
 	}
 	return export, nil
 }
 
-func (ems *EmsWrapper) maybeCreateDcExport(dcOpts *emanage.DcCreateOpts, exportOpts *emanage.ExportCreateOpts) (
+func (ems *EmsWrapper) CreateDcExport(dcOpts *emanage.DcCreateOpts, exportOpts *emanage.ExportCreateOpts) (
+	exportRef *emanage.Export, dc *emanage.DataContainer, err error) {
+
+	// Create Data Container if it doesn't exist
+	dc, err = ems.CreateDc(dcOpts)
+	if err != nil {
+		err = errors.Wrap(err, 0)
+		return
+	}
+
+	// Create Export if it doesn't exist
+	exportOpts.DcId = dc.Id
+	export, err := ems.CreateExport(defaultExportName, exportOpts)
+	if err != nil {
+		err = errors.Wrap(err, 0)
+		return
+	}
+	exportRef = &export
+	logrus.WithFields(logrus.Fields{"name": dc.Name, "id": dc.Id, "exportRef": exportRef.Name}).Info("Created DC, Export")
+	return exportRef, dc, nil
+}
+
+func (ems *EmsWrapper) MaybeCreateDcExport(dcOpts *emanage.DcCreateOpts, exportOpts *emanage.ExportCreateOpts) (
 	export *emanage.Export, dc *emanage.DataContainer, err error) {
 
 	// Create Data Container if it doesn't exist
@@ -259,9 +279,8 @@ func (ems *EmsWrapper) maybeCreateDcExport(dcOpts *emanage.DcCreateOpts, exportO
 	}
 
 	// Create Export if it doesn't exist
-	exportName := "e"
 	exportOpts.DcId = dc.Id
-	export, err = ems.maybeCreateExport(exportName, exportOpts)
+	export, err = ems.maybeCreateExport(defaultExportName, exportOpts)
 	if err != nil {
 		err = errors.Wrap(err, 0)
 		return
@@ -302,6 +321,42 @@ func (ems *EmsWrapper) DeleteDcExport(v *elastifileVolume) (err error) {
 		err = errors.WrapPrefix(err, "Failed to delete Data Container", 0)
 		return
 	}
+	return
+}
+
+func (ems *EmsWrapper) MaybeDeleteDcExport(v *elastifileVolume) (err error) {
+	dcExists, _, err := ems.dcExists(v.DataContainer.Name)
+	if err != nil {
+		return errors.WrapPrefix(err, "Failed to check if Data Container exists", 0)
+	}
+	if !dcExists {
+		logrus.WithField("name", v.DataContainer.Name).Debug(
+			"Skipping removal of Data Container - it has been deleted elsewhere")
+		return nil
+	}
+
+	exportExists, _, err := ems.exportExists(v.Export.Name, v.DataContainer.Id)
+	if err != nil {
+		return errors.WrapPrefix(err, "Failed to check if Export exists", 0)
+	}
+
+	if exportExists {
+		err = ems.DeleteExport(v.Export)
+		if err != nil {
+			return errors.WrapPrefix(err, "Failed to delete Export", 0)
+		}
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"ExportName":        v.Export.Name,
+			"DataContainerName": v.DataContainer.Name,
+		}).Debug("Skipping removal of export - it has been deleted elsewhere")
+	}
+
+	err = ems.DeleteDc(v.DataContainer)
+	if err != nil {
+		return errors.WrapPrefix(err, "Failed to delete Data Container", 0)
+	}
+
 	return
 }
 

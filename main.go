@@ -25,14 +25,33 @@ func logFatalAndPanic(format string, args ...interface{}) error {
 	panic(fmt.Sprintf(format, args...))
 }
 
+// initFromEnv initializes the plugin configuration from environment variables defined in config.json
+// The variables start with default specified in config.json and can be overridden via docker plugin install/set
 func initFromEnv() {
-	debug := os.Getenv("DEBUG")
 	driverInfo.RestAddr = os.Getenv("MGMT_ADDRESS")
 	driverInfo.RestUser = os.Getenv("MGMT_USERNAME")
 	driverInfo.RestPass = os.Getenv("MGMT_PASSWORD")
 	driverInfo.StorageAddr = os.Getenv("NFS_ADDRESS")
 
-	if ok, _ := strconv.ParseBool(debug); ok {
+	envVarName := "CRUD_IDEMPOTENT"
+	envVarValue := os.Getenv(envVarName)
+	volCrudIdempotent, err := strconv.ParseBool(envVarValue)
+	if err != nil {
+		err = errors.WrapPrefix(err, fmt.Sprintf("Failed to parse environment variable's value. %v='%v'",
+			envVarName, envVarValue), 0)
+		logFatalAndPanic(err.Error())
+	}
+	driverInfo.CrudIdempotent = volCrudIdempotent
+
+	envVarName = "DEBUG"
+	envVarValue = os.Getenv(envVarName)
+	enableDebug, err := strconv.ParseBool(envVarValue)
+	if err != nil {
+		err = errors.WrapPrefix(err, fmt.Sprintf("Failed to parse environment variable's value. %v='%v'",
+			envVarName, envVarValue), 0)
+		logFatalAndPanic(err.Error())
+	}
+	if enableDebug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 }

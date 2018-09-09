@@ -38,6 +38,14 @@
       "value": "10.0.200.200"
     },
     {
+      "Description": "Volume create/delete operations should be idempotent",
+      "name": "CRUD_IDEMPOTENT",
+      "settable": [
+        "value"
+      ],
+      "value": "false"
+    },
+    {
       "Description": "",
       "name": "DEBUG",
       "settable": [
