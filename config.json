@@ -46,7 +46,7 @@
       "value": "false"
     },
     {
-      "Description": "",
+      "Description": "Enable debug log level",
       "name": "DEBUG",
       "settable": [
         "value"

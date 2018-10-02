@@ -28,6 +28,24 @@ $ docker volume ls
   elastifileio/edvp:latest   myvolume1
 ```
 
+Optional arguments:
+
+_size_ - Volume size. Takes a number with (optional) units prefix, e.g. GiB, GB.
+
+_user-mapping-type_ - User mapping method. Supported values: no_mapping, remap_root, remap_all
+
+_user-mapping-uid_ - User id for the user mapping method
+
+_user-mapping-gid_ - Group id for the user mapping method
+
+```
+$ docker volume create -d elastifileio/edvp --name myvolume1 -o size=3GiB -o user-mapping-type=remap_root -o user-mapping-uid=65534 -o user-mapping-gid=65534
+myvolume1
+$ docker volume ls
+  DRIVER                     VOLUME NAME
+  elastifileio/edvp:latest   myvolume1
+```
+
 * Use the volume
 
 ```
