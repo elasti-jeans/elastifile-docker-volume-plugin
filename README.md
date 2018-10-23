@@ -6,7 +6,7 @@ The plugin allows you to create and mount Elastifile's ECFS volumes in your dock
 
 * Install the plugin
 
-```
+```bash
 $ docker plugin install --grant-all-permissions elastifileio/edvp MGMT_ADDRESS=10.11.209.222 NFS_ADDRESS=172.16.0.1 MGMT_USERNAME=myuser MGMT_PASSWORD=mypassword
 latest: Pulling from elastifileio/edvp
 dbef3f5c7798: Download complete 
@@ -18,9 +18,16 @@ ID                  NAME                     DESCRIPTION                        
 1ac8c5c1ae71        elastifileio/edvp:latest   Elastifile volume plugin for Docker   true
 ```
 
+Install the plugin in idempotent mode
+
+Behavior: create and delete volume operations will report success regardless of whether the volume existed prior to the operation
+```bash
+$ docker plugin install --grant-all-permissions elastifileio/edvp MGMT_ADDRESS=10.11.209.222 NFS_ADDRESS=172.16.0.1 MGMT_USERNAME=myuser MGMT_PASSWORD=mypassword CRUD_IDEMPOTENT=true
+```
+
 * Create a volume
 
-```
+```bash
 $ docker volume create -d elastifileio/edvp --name myvolume1
 myvolume1
 $ docker volume ls
@@ -38,7 +45,7 @@ _user-mapping-uid_ - User id for the user mapping method
 
 _user-mapping-gid_ - Group id for the user mapping method
 
-```
+```bash
 $ docker volume create -d elastifileio/edvp --name myvolume1 -o size=3GiB -o user-mapping-type=remap_root -o user-mapping-uid=65534 -o user-mapping-gid=65534
 myvolume1
 $ docker volume ls
@@ -48,25 +55,25 @@ $ docker volume ls
 
 * Use the volume
 
-```
+```bash
 $ docker run --rm -it -v myvolume1:/elastifile_mount busybox touch /elastifile_mount/hello_world
 $ docker run --rm -it -v myvolume1:/elastifile_mount busybox ls -l /elastifile_mount/hello_world
 -rw-r--r--    1 root     root             0 Sep  5 15:04 /elastifile_mount/hello_world
 ```
 
 * Create both the container and the volume in one command
-```
+```bash
 docker run -it -d -v myvolume1:/elastifile_mount --volume-driver=elastifileio/edvp busybox touch /elastifile_mount/file1
 ```
 
 * Delete the volume
-```
+```bash
 $ docker volume rm myvolume1
 myvolume1
 ```
 
 * Upgrade the plugin
-```
+```bash
 $ docker plugin disable elastifileio/edvp
 elastifileio/edvp
 $ docker plugin upgrade --grant-all-permissions elastifileio/edvp
@@ -81,7 +88,7 @@ elastifileio/edvp
 ```
 
 * Reconfigure the plugin
-```
+```bash
 $ docker plugin disable elastifileio/edvp
 elastifileio/edvp
 $ docker plugin set elastifileio/edvp MGMT_ADDRESS=10.11.209.111
@@ -90,7 +97,7 @@ elastifileio/edvp
 ```
 
 * Uninstall the plugin
-```
+```bash
 $ docker plugin disable elastifileio/edvp
 elastifileio/edvp
 $ docker plugin rm elastifileio/edvp

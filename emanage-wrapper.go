@@ -219,7 +219,8 @@ func (ems *EmsWrapper) exportExists(exportName string, dcId int) (exists bool, e
 	return
 }
 
-// maybeCreateDc creates DC if it doesn't exist
+// maybeCreateDc creates DC if it doesn't exist.
+// Returns the DC regardless of whether it existed earlier of was just created.
 func (ems *EmsWrapper) maybeCreateDc(dcOpts *emanage.DcCreateOpts) (*emanage.DataContainer, error) {
 	exists, dc, err := ems.dcExists(dcOpts.Name)
 	if err != nil {
@@ -236,6 +237,8 @@ func (ems *EmsWrapper) maybeCreateDc(dcOpts *emanage.DcCreateOpts) (*emanage.Dat
 	return dc, nil
 }
 
+// maybeCreateExport creates Export if it doesn't exist.
+// Returns the Export regardless of whether it existed earlier of was just created.
 func (ems *EmsWrapper) maybeCreateExport(exportName string, exportOpts *emanage.ExportCreateOpts) (*emanage.Export, error) {
 	exists, export, err := ems.exportExists(exportName, exportOpts.DcId)
 	if err != nil {
@@ -283,6 +286,8 @@ func (ems *EmsWrapper) CreateDcExport(dcOpts *emanage.DcCreateOpts, exportOpts *
 	return exportRef, dc, nil
 }
 
+// MaybeCreateDcExport creates DC and Export if they don't exist.
+// Returns the Export and the DC regardless of whether they existed earlier of were just created.
 func (ems *EmsWrapper) MaybeCreateDcExport(dcOpts *emanage.DcCreateOpts, exportOpts *emanage.ExportCreateOpts) (
 	export *emanage.Export, dc *emanage.DataContainer, err error) {
 
@@ -350,6 +355,8 @@ func (ems *EmsWrapper) DeleteDcExport(v *elastifileVolume) (err error) {
 	return
 }
 
+// MaybeDeleteDcExport deletes DC and Export if they exist.
+// Returns success regardless of whether they were just deleted or didn't exist at all.
 func (ems *EmsWrapper) MaybeDeleteDcExport(v *elastifileVolume) (err error) {
 	dcExists, _, err := ems.dcExists(v.DataContainer.Name)
 	if err != nil {
